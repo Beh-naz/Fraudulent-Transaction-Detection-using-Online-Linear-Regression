@@ -20,7 +20,7 @@ install.packages("caret")
 install.packages("ggplot2")
 
 ## Results
-The implemented online linear regression model achieved an accuracy of 85% in detecting fraudulent transactions.
+The implemented online linear regression model achieved an accuracy of 86% in detecting fraudulent transactions.
 
 ## Further Work
 Plans to extend this project include testing two additional methods on the dataset and benchmarking their performance in terms of efficiency.
