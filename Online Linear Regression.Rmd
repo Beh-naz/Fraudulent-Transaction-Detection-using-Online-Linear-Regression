@@ -1,0 +1,207 @@
+Load data into R.
+```{r}
+getwd()
+data=read.csv(file = "fraudulant transactions.csv")
+
+```
+```{r}
+# install.packages("caret")
+library(caret)
+library(ggplot2)
+# install.packages("pROC")
+#library(pROC)
+
+```
+
+Since we are doing regression, we need the columns entries to be numeric. Since the Type column is important to determine an action is fraudulent or not, the Type column can be one-hot encoded, creating a binary variable for each transaction type. Since the fraudulent activities were only by CASH_OUT and TRANSFER, we only encode these two.
+```{r}
+# Convert the 'type' feature into a factor
+data$type <- as.factor(data$type)
+
+# Create binary variables for 'CASH_OUT' and 'TRANSFER'
+data$CASH_OUT <- ifelse(data$type == "CASH_OUT", 1, 0)
+data$TRANSFER <- ifelse(data$type == "TRANSFER", 1, 0)
+
+# You can now remove the 'type' column
+data$type <- NULL
+head(data)
+```
+```{r}
+# Standardize (normalize) numeric variables
+
+selected_cols <- c("amount", "oldbalanceOrg", "newbalanceOrig", "oldbalanceDest","newbalanceDest")
+
+# Normalize selected columns using the scale() function
+normalized_data <- data
+normalized_data[, selected_cols] <- scale(data[, selected_cols])
+
+normalized_data <- data.frame(normalized_data)
+head(normalized_data)
+
+```
+Splitting the dataset into old_data and new_data:
+
+```{r}
+old_data = normalized_data[which(data$step< 3),]
+
+new_data = normalized_data[which(data$step>= 3),]
+# head function shows the first 6 rows of the data set.
+head(old_data)
+nrow(old_data)
+```
+
+
+```{r}
+T <- nrow(old_data)  # Number of rounds of training
+n <- 7  # Number of features (excluding the response isFraud, and excluding is FlaggedFraud, nameOrig, and nameDest)
+
+
+```
+The basic linear regression on the old data
+```{r}
+basic_model <- lm(isFraud ~ amount + oldbalanceOrg + newbalanceOrig + oldbalanceDest + newbalanceDest + CASH_OUT + TRANSFER, data = old_data)
+summary(basic_model)$coefficients
+basic_coefficients <- basic_model$coefficients
+basic_coefficients2 = as.numeric(basic_coefficients)[-1]
+
+basic_coefficients2
+```
+
+
+
+The parameters:
+```{r}
+numbers <- 1:20
+
+# Divide each number by 100
+parameters <- numbers / 100
+
+# Print the result
+print(parameters)
+```
+
+
+
+Building the model on the old_data:
+
+```{r}
+# Creating an empty list for all the Ws.
+p_w_list <- list()
+w_list <- list()
+
+#w <- c(0.01,0,0,0,0,0,0)
+w <- c(basic_coefficients2)
+
+
+# Loop over different parameters.
+for (p in parameters){
+  
+  # Algorithm loop
+for (t in 1:T) {
+  x <- c(as.numeric(old_data[t, c("amount", "oldbalanceOrg", "newbalanceOrig", "oldbalanceDest", "newbalanceDest", "CASH_OUT", "TRANSFER")]))
+  
+  y <- c(as.numeric(old_data$isFraud[t]))
+  #cat("x",x)
+  #cat("y",y)
+  
+  # Predict
+  y_hat <- c(w%*%x)
+  
+  # Update weights
+  w <- w - p * (y_hat - y)*x
+  #print(w)
+  
+}
+  # Adding parameter and w as a pair into a list.
+  p_w_list[[length(p_w_list) + 1]] <- list(p,w)
+  # Adding all into a list.
+  w_list[[length(w_list) + 1]] <- w
+}
+
+
+print("Final weights:")
+print(w_list)
+
+```
+
+
+
+
+
+```{r}
+# Creating a list of all accuracies.
+
+accuracy_list <- list()
+
+accuracy_parameter_list <- list()
+
+
+for(i in 1:length(w_list)){
+  
+  # We have these coefficients (including intercept)
+coefficients <- c(b0 = 0, amount = w_list[[i]][1], oldbalanceOrg = w_list[[i]][2], newbalanceOrig = w_list[[i]][3], oldbalanceDest = w_list[[i]][4], newbalanceDest = w_list[[i]][5], CASH_OUT = w_list[[i]][6], TRANSFER = w_list[[i]][7]) # adjust b0 if there is an intercept
+
+
+#Predict the isFraud values:
+
+new_data$predicted_isFraud <- with(new_data, coefficients['b0'] + 
+                                  coefficients['amount']*amount + 
+                                  coefficients['oldbalanceOrg']*oldbalanceOrg + 
+                                  coefficients['newbalanceOrig']*newbalanceOrig +
+                                  coefficients['oldbalanceDest']*oldbalanceDest +
+                                  coefficients['newbalanceDest']*newbalanceDest + 
+                                  coefficients['CASH_OUT']*CASH_OUT +
+                                  coefficients['TRANSFER']*TRANSFER)
+
+
+
+#Since isFraud is binary (0 or 1), we are working with logistic regression. Then, the predicted values above are on the log odds scale. To convert them to probabilities:
+
+new_data$predicted_probability <- 1 / (1 + exp(-new_data$predicted_isFraud))
+
+
+#We can then classify these probabilities into 0 or 1 based on a threshold, commonly 0.5:
+
+threshold <- 0.5
+new_data$predicted_isFraud_binary <- ifelse(new_data$predicted_probability >= threshold, 1, 0)
+
+
+new_data[c("isFraud", "predicted_isFraud_binary")]
+
+#Convert the columns to factors:
+new_data$predicted_isFraud_binary <- as.factor(new_data$predicted_isFraud_binary)
+new_data$isFraud <- as.factor(new_data$isFraud)
+
+# Create a confusion matrix
+cm <- confusionMatrix(new_data$predicted_isFraud_binary, new_data$isFraud)
+
+
+# Accuracy
+
+accuracy_list[[length(accuracy_list) + 1]] <- cm$overall['Accuracy']
+
+accuracy_parameter_list[[length(accuracy_parameter_list) + 1]] <- c(i, cm$overall['Accuracy'])
+
+}
+accuracy_list
+
+```
+
+
+
+```{r}
+max_val <- max(unlist(accuracy_list))
+cat("Accuracy max value:",max_val)
+
+get_parameter <- function(lst, acc) {
+  for (item in lst) {
+    if (item[2] == acc) {
+      return(item[1])
+    }
+  }
+  return(NULL) # Return NULL if accuracy is not found
+}
+
+param <- get_parameter(accuracy_parameter_list, max_val)
+cat("The best parameter:",param)
+```
