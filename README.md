@@ -15,6 +15,7 @@ To run the scripts, you will need R and the following R packages installed:
 You can install these packages using the following commands in your R console:
 
 install.packages("caret")
+
 install.packages("ggplot2")
 
 ## Results
