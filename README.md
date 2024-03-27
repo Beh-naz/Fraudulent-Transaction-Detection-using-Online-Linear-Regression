@@ -4,7 +4,7 @@
 This project focuses on the implementation of an online linear regression model to predict fraudulent transactions using financial data. The goal is to compare the efficiencies of online versus offline learning models, particularly in terms of memory and time utilization. Online learning has been chosen for its ability to update models incrementally, avoiding the overheads of data storage and model re-computation.
 
 ## Data
-The data used in this project consists of transaction details, including the types and amounts of transactions, balances, and a flag indicating whether the transaction is fraudulent. The dataset can be downloaded [here](https://www.kaggle.com/datasets/ealaxi/paysim1/download?datasetVersionNumber=2).
+The data used in this project consists of transaction details, including the types and amounts of transactions, balances, and a flag indicating whether the transaction is fraudulent. The dataset can be downloaded from [here](https://www.kaggle.com/datasets/ealaxi/paysim1/download?datasetVersionNumber=2).
 
 ## Prerequisites
 To run the scripts, you will need R and the following R packages installed:
